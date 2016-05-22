@@ -152,6 +152,8 @@ def fu_and_li_D(population):
     pop_size = len(population[0])
     S = len(population)
     a1_pop = a1(pop_size)
+    print S
+    print a1_pop * fu_and_li_theta(population)
     num = S - ( a1_pop * fu_and_li_theta(population) )
     den = math.sqrt((uD(pop_size) * S) + (vD(pop_size) * (S ** 2)))
     return num / den
@@ -209,7 +211,7 @@ def CV_KDE(oneD_array, expand = 1000):
     oneD_array = oneD_array[np.logical_not(np.isnan(oneD_array))]
     grid = GridSearchCV(KernelDensity(),
                     {'bandwidth': np.logspace(0.1, 5.0, 30)},
-                    cv=50) # 20-fold cross-validation
+                    cv=20) # 20-fold cross-validation
     grid.fit(oneD_array[:, None])
     x_grid = np.linspace(np.amin(oneD_array), np.amax(oneD_array), 10000)
     # add nothing to the end of grid and pdf so you can get a nice looking kde
