@@ -1,1 +1,1 @@
-roary -f ./test -e -n -v ./test_GFFs/
+roary -f ./test -e -n -v -z ./test_GFFs/
