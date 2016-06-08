@@ -243,18 +243,29 @@ def selectDormGenes():
     #print spore_genes_names
     print pd.merge(dataframe, spore_genes_names, on=['Gene'])
 
-selectDormGenes()
+#selectDormGenes()
 
-#print test.ix[test['pi'].idxmin()]
-#pi_np = np.asarray(test[['T_D']])
-#getKDE = CV_KDE(pi_np)
-#fig = plt.figure()
-#ax = fig.add_subplot(1, 1, 1)
 
-#plt.plot(getKDE[0], getKDE[1],color = 'b', linestyle = '-', label="N = 1000, B = 1")
-#n, bins, patches = plt.hist(pi_np, 200, normed=1, facecolor='green', alpha=0.75)
-#plt.xlabel('Tajimas D', fontsize = 18)
-#plt.ylabel('Probability', fontsize = 18)
-#output =  mydir + '/figs/TD.png'
-#plt.savefig(output, bbox_inches = "tight", pad_inches = 0.4, dpi = 600)
-#plt.close()
+def makePlot(param = 'pi'):
+    dataframe = pd.read_csv(mydir + '/data/out/PopGenStats.txt', sep = '\t')
+    param_np = np.asarray(dataframe[[param]])
+    getKDE = CV_KDE(param_np)
+    fig = plt.figure()
+    ax = fig.add_subplot(1, 1, 1)
+    plt.plot(getKDE[0], getKDE[1],color = 'b', linestyle = '-', label="N = 1000, B = 1")
+    if param == 'T_D':
+        plt.xlabel('Tajimas D', fontsize = 18)
+    elif param == 'FL_D':
+        plt.xlabel('Fu and Lis D', fontsize = 18)
+    elif param == 'W_T':
+        plt.xlabel('Wattersons Theta', fontsize = 18)
+    else:
+        plt.xlabel('pi', fontsize = 18)
+    plt.ylabel('Probability', fontsize = 18)
+    output =  mydir + '/figs/' + str(param) + '.png'
+    plt.savefig(output, bbox_inches = "tight", pad_inches = 0.4, dpi = 600)
+    plt.close()
+
+params = ['pi', 'T_D', 'FL_D','W_T']
+for param in params:
+     makePlot(param = param)
