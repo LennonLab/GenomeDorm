@@ -1,12 +1,13 @@
 from __future__ import division
 import os, argparse, random, math
 from collections import Counter
-from itertools import product
+from itertools import product, groupby
 import numpy as np
 from sklearn.preprocessing import StandardScaler
 from sklearn.grid_search import GridSearchCV
 from sklearn.neighbors import KernelDensity
 import pylab as plt
+import pandas as pd
 
 mydir = os.path.expanduser("~/github/GenomeDorm")
 
@@ -50,113 +51,108 @@ class classFASTA:
 
 # Genetic diversity parameters
 
-def a1(n):
-    '''Given n, this function returns the (n-1)th harmonic number'''
-    n = int(n)
-    return sum((1.0/d) for d in range(1,n))
+class popGenStats:
 
-def a2(n):
-    '''Given n, this function returns the (n-1)th squared harmonic number'''
-    n = int(n)
-    return sum((1.0/(d**2)) for d in range(1,n))
+    def __init__(self, pop):
+        self.pop = pop
+        self.n = len(self.pop[0])
+        self.S = len(self.pop)
 
-def b1(n):
-    '''Creates b1 for the variance of Tajima's theta'''
-    n = int(n)
-    return ((n+1) /  (3*(n-1)))
+    def a1(self):
+        '''Given n, this function returns the (n-1)th harmonic number'''
+        return sum((1.0/d) for d in range(1,self.n))
 
-def b2(n):
-    '''Creates b2 for the variance of Tajima's theta'''
-    n = int(n)
-    num = ((n**2) + n + 3) * 2
-    den = 9 * n * (n-1)
-    return num / den
+    def a2(self):
+        '''Given n, this function returns the (n-1)th squared harmonic number'''
+        #n = int(n)
+        return sum((1.0/(d**2)) for d in range(1,self.n))
 
-def c1(n):
-    n = int(n)
-    '''Creates c1 for the variance of Tajima's theta'''
-    return b1(n) - (1 / a1(n))
+    def b1(self):
+        '''Creates b1 for the variance of Tajima's theta'''
+        #n = int(n)
+        return ((self.n+1) /  (3*(self.n-1)))
 
-def c2(n):
-    n = int(n)
-    '''Creates c2 for the variance of Tajima's theta'''
-    return b2(n) - ((n+2) / (a1(n) * n)) + (a2(n) / (a1(n) ** 2 ))
+    def b2(self):
+        '''Creates b2 for the variance of Tajima's theta'''
+        #n = int(n)
+        num = ((self.n**2) + self.n + 3) * 2
+        den = 9 * self.n * (self.n-1)
+        return num / den
 
-def e1(n):
-    n = int(n)
-    return c1(n) / a1(n)
+    def c1(self):
+        #n = int(n)
+        '''Creates c1 for the variance of Tajima's theta'''
+        return self.b1() - (1 / self.a1())
 
-def e2(n):
-    n = int(n)
-    return c2(n) / ( (a1(n) ** 2) + a2(n) )
+    def c2(self):
+        #n = int(n)
+        '''Creates c2 for the variance of Tajima's theta'''
+        return self.b2() - ((self.n+2) / (self.a1() * self.n)) + (self.a2() / (self.a1() ** 2 ))
 
-def cn(n):
-    n = int(n)
-    num = ( 2 * n * a1(n) ) - (4 * (n-1))
-    den = (n-1) * (n-2)
-    return num / den
+    def e1(self):
+        #n = int(n)
+        return self.c1() / self.a1()
 
-def vD(n):
-    n = int(n)
-    chunk1 = (a1(n) ** 2) / ( a2(n) + (a1(n) ** 2) )
-    chunk2 = cn(n) - ((n + 1) / (n - 1))
-    return 1 + (chunk1 * chunk2)
+    def e2(self):
+        #n = int(n)
+        return self.c2() / ( (self.a1() ** 2) + self.a2() )
 
-def uD(n):
-    n = int(n)
-    return a1(n) - 1 - vD(n)
+    def cn(self):
+        #n = int(n)
+        num = ( 2 * self.n * self.a1() ) - (4 * (self.n-1))
+        den = (self.n-1) * (self.n-2)
+        return num / den
 
-# AKA # of segregating sites
-def wattersons_theta(pop):
-    '''Accepts a list containing tuples with the alignment'''
-    K = len(pop)
-    pop_size = len(pop[0])
-    theta = K / a1(pop_size)
-    return theta
+    def vD(self):
+        #n = int(n)
+        chunk1 = (self.a1() ** 2) / ( self.a2() + (self.a1() ** 2) )
+        chunk2 = self.cn() - ((self.n + 1) / (self.n - 1))
+        return 1 + (chunk1 * chunk2)
+
+    def uD(self):
+        #n = int(n)
+        return self.a1() - 1 - self.vD()
+
+    # AKA # of segregating sites
+    def wattersons_theta(self):
+        '''Accepts a list containing tuples with the alignment'''
+        theta = self.S / self.a1()
+        return theta
 
 
-def fu_and_li_theta(pop):
-    count = 0
-    for site in pop:
-        if 1 in Counter(site).values():
-            count += 1
-    return count
+    def fu_and_li_theta(self):
+        count = 0
+        for site in self.pop:
+            if 1 in Counter(site).values():
+                count += 1
+        return count
 
-def get_distance(seq_a, seq_b):
-    diffs = 0
-    length = len(seq_a)
-    assert len(seq_a) == len(seq_b)
-    for chr_a, chr_b in zip(seq_a, seq_b):
-        if chr_a != chr_b:
-            diffs += 1
-    #return diffs / float(length)
-    return diffs
 
-def tajimas_theta(population):
-    '''Accepts a list containing tuples wit the alignment'''
-    pop_size = len(population[0])
-    length = len(population)
-    for i in range(length):
-        haplotype_a = haplotypes[i]
-        frequency_a = population[haplotype_a] / float(pop_size)
-        for j in range(0, i):
-            #for j in range(haplotype_count):
-            haplotype_b = haplotypes[j]
-            #frequency_b = population[haplotype_b] / float(pop_size)
-            #frequency_pair = frequency_a * frequency_b
-            #diversity += frequency_pair * get_distance(haplotype_a, haplotype_b)
-            diversity += (get_distance(haplotype_a, haplotype_b))
-    return (diversity * (2 / (pop_size * (pop_size-1))))
+    def tajimas_theta(self):
+        '''Accepts a list containing tuples wit the alignment'''
+        #n = len(population[0])
+        pi_sum = 0
+        for site in self.pop:
+            #n = len(site)
+            site_dict = Counter(site)
+            sum_freq = 0
+            for key, value in site_dict.items():
+                freq = value / self.n
+                site_dict[key] = freq
+                sum_freq += freq ** 2
+            pi_sum += (self.n/(self.n-1.0)) * (1 - sum_freq)
+        return pi_sum
 
-def fu_and_li_D(population):
-    pop_size = len(population[0])
-    S = len(population)
-    a1_pop = a1(pop_size)
-    print S
-    print a1_pop * fu_and_li_theta(population)
-    num = S - ( a1_pop * fu_and_li_theta(population) )
-    den = math.sqrt((uD(pop_size) * S) + (vD(pop_size) * (S ** 2)))
-    return num / den
+    def tajimas_D(self):
+        num = self.tajimas_theta() - self.wattersons_theta()
+        den = math.sqrt( (self.e1() * self.S) + (self.e2() * self.S * (self.S-1)) )
+        T_D = num / den
+        return T_D
+
+    def fu_and_li_D(self):
+        num = self.S - ( self.a1() * self.fu_and_li_theta() )
+        den = math.sqrt((self.uD() * self.S) + (self.vD() * (self.S ** 2)))
+        return num / den
 
 
 def readAln(i):
@@ -180,7 +176,8 @@ def aln2params():
     NOTE: Only looks at "silent"-site variation
     '''
     D_FL = []
-    path = mydir + '/output_dir/pan_genome_sequences'
+    align_dict = {}
+    path = mydir + '/data/out_test_1465341694/pan_genome_sequences'
     for i in os.listdir(path):
         if i.endswith(".fa.aln"):
             name = i.split('.')[0]
@@ -194,16 +191,30 @@ def aln2params():
             # get every third
             every_third = align[2::3]
             S = 0
-
             sample = [x for x in every_third if (len(set(x)) > 1) and ('-' not in x)\
-            and (len(x) ==11) ]
+            and (len(x) ==14) ]
+            if len(x) != 14 and len(x) > 1:
+                print name, str(len(x))
+
             if len(sample) ==0:
                 continue
-            theta_W = wattersons_theta(sample)
-            theta_FL = fu_and_li_theta(sample)
-            D_FL.append(fu_and_li_D(sample))
+            testtt =  popGenStats(sample)
+            pi = popGenStats(sample).tajimas_theta()
+            theta_W = popGenStats(sample).wattersons_theta()
+            theta_FL = popGenStats(sample).fu_and_li_theta()
+            T_D = popGenStats(sample).tajimas_D()
+            D_FL = popGenStats(sample).fu_and_li_D()
+            align_dict[name] = [pi, theta_W, theta_FL, T_D, D_FL]
             # get Wattersons theta, pi, etc,
-    return D_FL
+    df = pd.DataFrame(align_dict, index =None)
+    df = df.transpose()
+    #df.index = range( df.shape[0])
+    df = df.reset_index()
+    #print df.shape[0]
+    print df
+    df.columns = ['Gene', 'W_T', 'pi', 'FL_T', 'T_D', 'FL_D']
+    df.to_csv(mydir + '/data/out/PopGenStats.txt', sep = '\t', index=False)
+    return df
 
 
 def CV_KDE(oneD_array, expand = 1000):
@@ -221,19 +232,29 @@ def CV_KDE(oneD_array, expand = 1000):
     return_tuple = (x_grid, pdf, kde.bandwidth)
     return return_tuple
 
-D_FL = np.asarray(aln2params())
 
-fig = plt.figure()
-ax = fig.add_subplot(1, 1, 1)
-#ax.scatter(DNAnumpy, CTCnumpy)
-#ax.set_xlim([-1000,4000])
-return_D_FL = CV_KDE(D_FL)
 
-plt.plot(return_D_FL[0], return_D_FL[1],color = 'b', linestyle = '-', label="N = 1000, B = 1")
-plt.xlabel('Fu and Lis D', fontsize = 18)
-plt.ylabel('Probability', fontsize = 18)
-output =  mydir + '/figs/test.png'
-#plt.savefig(output)
-plt.savefig(output, bbox_inches = "tight", pad_inches = 0.4, dpi = 600)
-#plt.xscale()
-plt.close()
+def selectDormGenes():
+    dataframe = pd.read_csv(mydir + '/data/out/PopGenStats.txt', sep = '\t')
+    PresAbs = pd.read_csv(mydir + '/data/out_test_1465341694/gene_presence_absence.csv')
+    spore_genes = PresAbs[PresAbs['Annotation'].str.contains("spor")]
+    spore_genes_names = spore_genes[['Gene']]
+    print spore_genes_names
+    #print spore_genes_names
+    print pd.merge(dataframe, spore_genes_names, on=['Gene'])
+
+selectDormGenes()
+
+#print test.ix[test['pi'].idxmin()]
+#pi_np = np.asarray(test[['T_D']])
+#getKDE = CV_KDE(pi_np)
+#fig = plt.figure()
+#ax = fig.add_subplot(1, 1, 1)
+
+#plt.plot(getKDE[0], getKDE[1],color = 'b', linestyle = '-', label="N = 1000, B = 1")
+#n, bins, patches = plt.hist(pi_np, 200, normed=1, facecolor='green', alpha=0.75)
+#plt.xlabel('Tajimas D', fontsize = 18)
+#plt.ylabel('Probability', fontsize = 18)
+#output =  mydir + '/figs/TD.png'
+#plt.savefig(output, bbox_inches = "tight", pad_inches = 0.4, dpi = 600)
+#plt.close()
